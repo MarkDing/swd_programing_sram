@@ -1,0 +1,27 @@
+REM KEIL files
+del /S *.#1
+del /S *.#2
+del /S *.#3
+del /S *.lst
+del /S *.m51
+del /S cyglink.txt
+del /S *.obj
+del /S *.omf
+del /S tmp.out
+del /S *.backup
+del /S *.Bak
+del /S *.__i
+del /S *.map
+del /S *.i
+del /S *.sbr
+del /S *.plg
+REM SDCC files
+del /S *.sym
+del /S *.rel
+del /S *.rst
+del /S *.adb
+del /S *.mem
+del /S *.cdb
+del /S *.lk
+del /S *.asm
+REM pause
