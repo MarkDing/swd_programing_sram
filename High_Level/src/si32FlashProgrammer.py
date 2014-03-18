@@ -113,23 +113,12 @@ OFF_CLKCTRL_APBCLKG0 = 0x00000020               # APB Clock Gate 0 Register
 OFF_CLKCTRL_APBCLKG0_SET = 0x00000024           # Set register: sets bits to 1 (masked by value)
 OFF_CLKCTRL_APBCLKG0_CLR = 0x00000028           # Clear register: clears bits to 0 (masked by value)
 
-OFF_CLKCTRL_APBCLKG1 = 0x00000030               # APB Clock Gate 1
-OFF_CLKCTRL_APBCLKG1_SET = 0x00000034           # Set register: sets bits to 1 (masked by value)
-OFF_CLKCTRL_APBCLKG1_CLR = 0x00000038           # Clear register: clears bits to 0 (masked by value)
 # CLKCTRL.APBCLKG0 Masks
 MASK_APBCLKG0_ENABLE_ALL_CLOCKS = 0xFFFFFFFF    # Enable FLASHCTRL APB clock
 												# The FLASHCTRL clock enable bit is in a different
 												# location on SiM3L1xx and SiM3U/C1xx devices, so
 												# enable clocks to all peripherals
-# CLKCTRL.APBCLKG1 Masks
-MASK_APBCLKG1_ENABLE_ALL_CLOCKS = 0x00000007    # Enable RSTSRC0 APB clock
 
-
-#------------------------------------------------------------------------------
-# RSTSRC0 Register Definitions
-#------------------------------------------------------------------------------
-RSTSRC0_RESETEN = 0x4002D060        # System Reset Source Enable
-RSTSRC0_RESETEN_SET = 0x4002D064    # System Reset Source Enable SET access
 #------------------------------------------------------------------------------
 # DAP (Debug Access Port) Access Functions
 #------------------------------------------------------------------------------
@@ -154,7 +143,7 @@ def write_DAP(uda, select, address, data):
 	uda.StartTransfers()
 
 def read_AHB(uda, address):
-	"""Use MEMAP to read one 32-bit w on the AHB bus.
+	"""Use MEMAP to read one 32-bit word on the AHB bus.
 	:param address: AHB address to read
 	"""
 	uda.QueueWrite(DP_SELECT, MEMAP_BANK_0)
@@ -164,7 +153,7 @@ def read_AHB(uda, address):
 	return uda.StartTransfers()[0]
 
 def write_AHB(uda, address, data):
-	"""Use MEMAP to write one 32-bit w on the AHB bus.
+	"""Use MEMAP to write one 32-bit word on the AHB bus.
 	:param address: AHB address to write
 	:param data: 32-bit value to write
 	"""
@@ -192,7 +181,7 @@ def connect_and_halt_core(uda):
 	write_DAP(uda, CHIPAP_BANK_0, CHIPAP_CTRL1, 0x8)    # CTRL1.core_reset_ap = 1
 	write_AHB(uda, DHCSR, 0xA05F0001)                   # DHCSR.C_DEBUGEN = 1
 	write_AHB(uda, DEMCR, 0x1)                          # DEMCR.VC_CORERESET = 1
-	write_AHB(uda, AIRCR, 0xFA050004)                   # reset the core
+	write_AHB(uda, AIRCR, 0x05FA0004)                   # reset the core
 	write_DAP(uda, CHIPAP_BANK_0, CHIPAP_CTRL1, 0x0)    # CTRL1.core_reset_ap = 0
 
 def enable_flashctrl_clock(uda):
@@ -215,15 +204,15 @@ def device_erase(uda):
 	write_DAP(uda, CHIPAP_BANK_0, CHIPAP_CTRL1, 0x0)    # CTRL1.sysreset_req_ap = 0
 
 
-def write_sequential_words(uda, address, data_ws, length):
-	"""Write ws in an array (list) to flash.
+def write_sequential_words(uda, address, data_words, length):
+	"""Write words in an array (list) to flash.
 	Clocks must already be enabled and the device must be halted."""
 
-	# If data_halfws is an int, cast it as a list
-	if isinstance(data_ws, int):
-		data_ws = [data_ws]
+	# If data_halfwords is an int, cast it as a list
+	if isinstance(data_words, int):
+		data_words = [data_words]
 
-	# Write the flash w
+	# Write the flash word
 
 	# Disable flash page erases
 	write_AHB(uda, FLASHCTRL_BASE_ADDRESS + OFF_FLASH_CONFIG_CLR, MASK_FLASH_CONFIG_ERASE_ENABLE)
@@ -245,7 +234,7 @@ def write_sequential_words(uda, address, data_ws, length):
 	uda.QueueWrite(MEMAP_TAR, FLASHCTRL_BASE_ADDRESS + OFF_FLASH_WRITE_DATA)
 	uda.StartTransfers()
 
-	# Write all the ws to flash
+	# Write all the words to flash
 	# Intended to be simple, this implementation writes single commands across the USB HID
 	# interface for each 16 bits of data, which is very slow and inefficient.  In an actual
 	# programmer implementation, this process should write data to the serial wire debug port
@@ -253,8 +242,8 @@ def write_sequential_words(uda, address, data_ws, length):
 	for x in range (0, length):
 
 		# Writes are 16-bits
-		uda.QueueWrite(MEMAP_DRW, 0x0000FFFF & data_ws[x])
-		uda.QueueWrite(MEMAP_DRW, (0xFFFF0000 & data_ws[x]) >> 16)
+		uda.QueueWrite(MEMAP_DRW, 0x0000FFFF & data_words[x])
+		uda.QueueWrite(MEMAP_DRW, (0xFFFF0000 & data_words[x]) >> 16)
 		uda.StartTransfers()
 
 	# Clean up after the write operations
@@ -264,23 +253,23 @@ def write_sequential_words(uda, address, data_ws, length):
 
 
 def read_sequential_words(uda, address, length):
-	"""Read ws in an array (list) from flash.
+	"""Read words in an array (list) from flash.
 	The device must already be halted."""
 
-	data_ws = []
+	data_words = []
 
 	# Auto increment addresses
 	uda.QueueWrite(DP_SELECT, MEMAP_BANK_0)
 	uda.QueueWrite(MEMAP_CSW, 0x23000012)
 	uda.QueueWrite(MEMAP_TAR, address)
 
-	# length is given in w addresses, so translate these to device
+	# length is given in word addresses, so translate these to device
 	# addresses in bytes
 	for x in range (0, length):
 		uda.QueueRead(MEMAP_DRW)
-		data_ws.append(uda.StartTransfers()[0])
+		data_words.append(uda.StartTransfers()[0])
 
-	return data_ws
+	return data_words
 
 def swd_write_mem(uda, address, data_ws, length):
 	"""Write ws in an array (list) to SRAM.
@@ -296,23 +285,23 @@ def swd_write_mem(uda, address, data_ws, length):
 		uda.StartTransfers()
 
 def swd_read_mem(uda, address, length):
-	"""Read ws in an array (list) from SRAM.
+	"""Read words in an array (list) from SRAM.
 	The device must already be halted."""
 
-	data_ws = []
+	data_words = []
 
 	# Auto increment addresses
 	uda.QueueWrite(DP_SELECT, MEMAP_BANK_0)
 	uda.QueueWrite(MEMAP_CSW, 0x23000012)
 	uda.QueueWrite(MEMAP_TAR, address)
 
-	# length is given in w addresses, so translate these to device
+	# length is given in word addresses, so translate these to device
 	# addresses in bytes
 	for x in range (0, length):
 		uda.QueueRead(MEMAP_DRW)
-		data_ws.append(uda.StartTransfers()[0])
+		data_words.append(uda.StartTransfers()[0])
 
-	return data_ws
+	return data_words
 
 def swd_write_core_register(uda, n, val):
 	"""Write vlaue to Cortez M3 core register."""
@@ -376,8 +365,8 @@ def erase_page(uda, address):
 	write_AHB(uda, FLASHCTRL_BASE_ADDRESS + OFF_FLASH_WRITE_KEY, 0x5A)
 
 def sram_programming(uda):
-	# filename = "sim3u1xx_Blinky.bin"
-	filename = "sim3u1xx_USBHID_ram.bin"
+	filename = "sim3u1xx_Blinky.bin"
+	# filename = "sim3u1xx_USBHID_ram.bin"
 	print(sys.version_info)
 	data = []
 	f = open(filename,mode = 'rb')
@@ -432,21 +421,13 @@ def sram_programming(uda):
 	# recv = swd_read_core_register(uda, 15)
 	swd_write_core_register(uda, 15, rst_isr)
 	recv = swd_read_core_register(uda, 15)
-	print(hex(recv))
+	# print(hex(recv))
 
 	data[0] = 0x20008000
 	swd_write_core_register(uda, 13, data[0])
-	# recv = swd_read_mem(uda, 0xe000ed08, 1)
-	# print(hex(recv[0]))
-	# write_AHB(uda, DDFSR, 0)
-	# tmp = read_AHB(uda, DDFSR)
 	write_AHB(uda, DHCSR, 0xA05F0000)
 	tmp = read_AHB(uda, DHCSR)
-	print(hex(tmp))
-	# write_AHB(uda, DEMCR, 0x0)                          # DEMCR.VC_CORERESET = 0
-	# Pulse sysreset so the device unlocks
-	# write_DAP(uda, CHIPAP_BANK_0, CHIPAP_CTRL1, 0x4)    # CTRL1.sysreset_req_ap = 1
-	# write_DAP(uda, CHIPAP_BANK_0, CHIPAP_CTRL1, 0x0)    # CTRL1.sysreset_req_ap = 0
+	# print(hex(tmp))
 
 
 #------------------------------------------------------------------------------
@@ -464,114 +445,65 @@ write_DAP(uda, MEMAP_BANK_0, DP_CTRLSTAT, 0x50000000)
 # connect_and_halt_core(uda)
 
 # Bulk erase the entire user flash
-# print('Erasing all flash in the device...')
-# device_erase(uda)
-# print('done!')
+print('Erasing all flash in the device...')
+device_erase(uda)
+print('done!')
 
 connect_and_halt_core(uda)
 
-tmp = read_DAP(uda, 0, 0)
-print(hex(tmp))
-
 # Clocks must be enabled to the flash controller to write/erase flash
-# enable_flashctrl_clock(uda)
+enable_flashctrl_clock(uda)
 
-# Enable clock to reset source register.
-# write_AHB(uda, CLKCTRL_BASE_ADDRESS + OFF_CLKCTRL_APBCLKG1_SET, MASK_APBCLKG1_ENABLE_ALL_CLOCKS)
-# write_AHB(uda, RSTSRC0_RESETEN_SET, 0x40)
-# write_AHB(uda, DHCSR, 0xA05F0000)
-# tmp = read_AHB(uda, DHCSR)
-# print(hex(tmp))
+# Write a set of halfwords to two pages
+print('\nWriting test data to addresses 0x00000200 and 0x00000400...', end='')
+write_data_words = [0xA5A50000, 0x88885A5A, 0x1111FFEE, 0x11FFEEEE]
+write_sequential_words(uda, 0x00000200, write_data_words, 4)
+write_data_words.reverse()
+write_sequential_words(uda, 0x00000400, write_data_words, 4)
+print(' done!')
 
-# Mark.Ding add for SRAM read/write test
+# Read the data from flash
+print('\nReading test data to address 0x00000200...', end='')
+write_data_words.reverse()
+read_data_words = read_sequential_words(uda, 0x00000200, 4)
+if set(write_data_words) & set(read_data_words):
+	print(' data verified!')
+else:
+	print(' error in data!')
+print('Write: [', ', '.join([hex(i) for i in write_data_words]), ']')
+print('Read: [', ', '.join([hex(i) for i in read_data_words]), ']')
+
+print('\nReading test data to address 0x00000400...', end='')
+write_data_words.reverse()
+read_data_words = read_sequential_words(uda, 0x00000400, 4)
+if set(write_data_words) & set(read_data_words):
+	print(' data verified!')
+else:
+	print(' error in data!')
+print('Write: [', ', '.join([hex(i) for i in write_data_words]), ']')
+print('Read: [', ', '.join([hex(i) for i in read_data_words]), ']')
+
+# Erase the 0x00001000 page of flash
+print('\nErasing page 0x00000200...', end='')
+erase_page(uda, 0x00000200)
+print(' done!')
+
+# Read the data from flash
+print('\nReading test data to address 0x00000200...', end='')
+data_words = [0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF]
+read_data_words = read_sequential_words(uda, 0x00000200, 4)
+if set(data_words) & set(read_data_words):
+	print(' data verified!')
+else:
+	print(' error in data!')
+print('Erased data: [', ', '.join([hex(i) for i in data_words]), ']')
+print('Read: [', ', '.join([hex(i) for i in read_data_words]), ']')
+
+# SRAM programming test
 print('\nStart SRAM programming')
 sram_programming(uda)
 print('\nSRAM programming done')
 
-# print('\nReading contents in RAM address 0x20000000')
-# read_data_ws = swd_read_mem(uda, 0x20000000, 4)
-# print('Read: [', ', '.join([hex(i) for i in read_data_ws]), ']')
-
-# print('\nWriting contents in RAM address 0x20000000')
-# write_data_ws = [0xA5A50000, 0x88885A5A, 0x1111FFEE, 0x11FFEEEE]
-# swd_write_mem(uda, 0x20000000, write_data_ws, 4)
-# print('Done!')
-
-# print('\nReading contents in RAM address 0x20000000')
-# read_data_ws = swd_read_mem(uda, 0x20000000, 4)
-# print('Read: [', ', '.join([hex(i) for i in read_data_ws]), ']')
-
-# print('\nReading contents in vector table 0xe000ed08')
-# read_data_ws = swd_read_mem(uda, 0xe000ed08, 1)
-# print('Read: [', ', '.join([hex(i) for i in read_data_ws]), ']')
-
-# Rn =swd_read_core_register(uda, 13)
-# print(hex(Rn))
-# swd_write_core_register(uda, 13, 0x55aa667f)
-# Rn = 0
-# Rn =swd_read_core_register(uda, 13)
-# print(hex(Rn))
-# print('\nReading ARM core register R0-R15')
-# for i in range(0, 16):
-#     Rn =swd_read_core_register(uda, i)
-#     print('R%d = 0x%x'%(i, Rn))
-
-# print('\nWriting ARM core register R0-R15')
-# for i in range(0, 16):
-#     swd_write_core_register(uda, i, i + 0x55aa0000)
-
-# print('\nReading ARM core register R0-R15')
-# for i in range(0, 16):
-#     Rn =swd_read_core_register(uda, i)
-#     print('R%d = 0x%x'%(i, Rn))
-
-# Write a set of halfws to two pages
-# print('\nWriting test data to addresses 0x00000200 and 0x00000400...')
-# write_data_ws = [0xA5A50000, 0x88885A5A, 0x1111FFEE, 0x11FFEEEE]
-# write_sequential_ws(uda, 0x00000200, write_data_ws, 4)
-# write_data_ws.reverse()
-# write_sequential_ws(uda, 0x00000400, write_data_ws, 4)
-# print(' done!')
-
-# Read the data from flash
-# print('\nReading test data to address 0x00000200...')
-# write_data_ws.reverse()
-# read_data_ws = read_sequential_ws(uda, 0x00000200, 4)
-# if set(write_data_ws) & set(read_data_ws):
-#     print(' data verified!')
-# else:
-#     print(' error in data!')
-# print('Write: [', ', '.join([hex(i) for i in write_data_ws]), ']')
-# print('Read: [', ', '.join([hex(i) for i in read_data_ws]), ']')
-
-# print('\nReading test data to address 0x00000400...')
-# write_data_ws.reverse()
-# read_data_ws = read_sequential_ws(uda, 0x00000400, 4)
-# if set(write_data_ws) & set(read_data_ws):
-#     print(' data verified!')
-# else:
-#     print(' error in data!')
-# print('Write: [', ', '.join([hex(i) for i in write_data_ws]), ']')
-# print('Read: [', ', '.join([hex(i) for i in read_data_ws]), ']')
-
-# Erase the 0x00001000 page of flash
-# print('\nErasing page 0x00000200...')
-# erase_page(uda, 0x00000200)
-# print(' done!')
-
-# Read the data from flash
-# print('\nReading test data to address 0x00000200...')
-# data_ws = [0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF]
-# read_data_ws = read_sequential_ws(uda, 0x00000200, 4)
-# if set(data_ws) & set(read_data_ws):
-#     print(' data verified!')
-# else:
-#     print(' error in data!')
-# print('Erased data: [', ', '.join([hex(i) for i in data_ws]), ']')
-# print('Read: [', ', '.join([hex(i) for i in read_data_ws]), ']')
-
-# Excute software reset
-# write_AHB(uda, RSTSRC0_RESETEN_SET, 0x40)
 
 # Disable debug and disconnect before exiting
 write_DAP(uda, MEMAP_BANK_0, DP_CTRLSTAT, 0x00000000)

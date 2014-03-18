@@ -32,7 +32,6 @@ U8 DP_Type;
 // Possible values for DP_Type.
 enum { DP_TYPE_NONE, DP_TYPE_SWD };
 
-// Mark.Ding add for test
 
 // Cortex M3 Debug Registers (AHB addresses)
 #define DDFSR   0xE000ED30      // Debug Fault StatusRegister
@@ -63,6 +62,7 @@ enum { DP_TYPE_NONE, DP_TYPE_SWD };
 #define CHIPAP_ID_WR        0x0D
 #define CHIPAP_ID_RD        0x0F
 
+#ifdef SRAM_PROGRAMMING
 void connect_and_halt_core()
 {
     U32 rw_data;
@@ -167,14 +167,6 @@ void swd_write_core_register(U32 n, U32 *rw_data)
     SWD_DAP_Move(0, MEMAP_TAR, &tmp);
     n = n | (0x10000);
     SWD_DAP_Move(0, MEMAP_DRW_WR, &n);
-
-    // tmp = DHCSR;
-    // SWD_DAP_Move(0, MEMAP_TAR, &tmp);
-    // tmp = 0;
-    // SWD_DAP_Move(0, MEMAP_DRW_RD, &tmp);
-    // if (tmp & 0x00010000) {
-    //     tmp = 0;
-    // }
 }
 
 void swd_read_core_register(U32 n, U32 *rw_data)
@@ -195,7 +187,6 @@ void swd_read_core_register(U32 n, U32 *rw_data)
 
 void programming_sram()
 {
-#if 1
     U32 i, size, count, addr = 0x20000000;
 
     size = sizeof(binraw) / 4;
@@ -217,51 +208,8 @@ void programming_sram()
     swd_write_core_register(13, &addr);
     addr = 0xA05F0000;
     write_sequential_words(DHCSR, 1, &addr);
-#else
-    U32 i, addr = 0x20000000, xdata rw_data[16];
-
-    swd_write_core_register(13, &addr);
-    addr = 0;
-    swd_read_core_register(13, &addr);
-    for (i = 0; i < 16; i++) {
-        rw_data[i] = 0x77889900 + i;
-    }
-    // write_sequential_words(addr, 10, rw_data);
-    // for (i = 0; i < 10; i++) {
-    //     rw_data[i] = 0;
-    // }
-    // read_sequential_words(addr, 10, rw_data);
-    for (i = 1; i < 16; i++) {
-        swd_write_core_register(i, &rw_data[i]);
-    }
-    for (i = 0; i < 16; i++) {
-        rw_data[i] = 0;
-    }
-    for (i = 0; i < 16; i++) {
-        swd_read_core_register(i, &rw_data[i]);
-    }
-    // for (i = 10; i < 16; i++) {
-    //     swd_read_core_register(i, &rw_data[i - 10]);
-    // }
-
-
-    // addr = 0x20000000;
-    // for (i = 0; i < 5; i++) {
-    //     rw_data = 0x55aa7700 + i;
-    //     SWD_DAP_Move(0, MEMAP_DRW_WR, &rw_data);
-    //     addr++;
-    // }
-
-    // addr = 0x20000000;
-    // SWD_DAP_Move(0, MEMAP_TAR, &addr);
-    // for (i = 0; i < 15; i++) {
-    //     SWD_DAP_Move(0, MEMAP_DRW_RD, &rw_data);
-    //     addr++;
-    // }
-#endif
 }
-
-// End
+#endif
 
 //-----------------------------------------------------------------------------
 // main()
