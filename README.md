@@ -59,7 +59,7 @@ The request phase consists of 8 bits. The meaning of each bit in the request is 
 * `APnDP` -- A single bit, indicating whether the Debug Port or the Access Port Access Register is to be accessed. 1 for accessing AP.
 * `RnW` -- A single bit, this bit is 0 for an write access, or 1 for a read access.
 * `A[2:3]` -- Two bits, giving the A[3:2] address field for the DP or AP register address.
-* `Parity` -- A single odd parity bit is made over the APnDP, RnW and A[2:3] bits. The number of bits set to 1 is odd, then the parity bit is set to 1.
+* `Parity` -- A single even parity bit is made over the APnDP, RnW and A[2:3] bits. The number of bits set to 1 is odd, then the parity bit is set to 1.
 * `Stop` -- A single stop bit. In the synchronousSWD protocol this is always 0.
 * `Park` -- A single bit, with value 1.
 
